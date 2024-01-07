@@ -1,0 +1,97 @@
+---
+title: "Preparing Data"
+format: html
+editor: visual
+---
+
+## GMM DIA: Preparing data
+
+This document describes data preparation. The data using in the workshop is artificially generated and has absolutely nothing to do with real production. However, similar data structures can be used in the wafer production.
+
+## Master data
+
+As first step we define master data for a wafer as usually needed for a product design:
+
+```{r}
+map_template.master<-list(
+  # Master data 
+  wafer_size = 200e3,
+  wafer_edge = 5e3
+)
+```
+
+## Function plotting a circle
+
+The following function is plotting a circle using ggplot2 as needed to plot a wafer map. Please see "[Draw a circle with ggplot2](https://stackoverflow.com/questions/6862742/draw-a-circle-with-ggplot2){.uri}"for details and other possibilities.
+
+```{r}
+circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
+    r = diameter / 2
+    tt <- seq(0,2*pi,length.out = npoints)
+    xx <- center[1] + r * cos(tt)
+    yy <- center[2] + r * sin(tt)
+    df<-data.frame(x = xx, y = yy)
+    
+    geom_path(data=df, aes(x,y))
+    
+}
+```
+
+Using this function we can easy plot a circle as a first part of our wafer map, using our master data:
+
+```{r fig.asp=1}
+ggplot() + circleFun(diameter=map_template.master$wafer_size)
+```
+
+## Positioning stepper fields
+
+Now we create a simply function, to position stepper fields on the wafer. In production, of course, we have to optimize the positioning taking the production equipment (eg. lithograpy equipment) and yield into account, what we are not doing here.
+
+We simply divide the wafer into 9 peaces in each direction. To achieve that, we create a sequance that includes stepper field coordinates
+
+```{r}
+sf_sequence<-seq(
+  from       = -map_template.master$wafer_size/2,
+  to         =  map_template.master$wafer_size/2,
+  length.out = 9
+)
+print(sf_sequence)
+```
+
+Now we create a table including all the stepper fields, combining sf_sequence:
+
+```{r}
+# SF sizes
+dx<-dy<-map_template.master$wafer_size/8
+# Save it to our master data
+map_template.master$step_x<-dx
+map_template.master$step_y<-dy
+# SF data as table
+sf_table<-setDT(expand.grid(xmin=sf_sequence,ymin=sf_sequence))
+sf_table[,`:=`(xmax=xmin+dx, ymax=ymin+dy)]
+# Eliminate SFs outside of wafer
+r<-map_template.master$wafer_size/2
+sf_table<-sf_table[
+  (xmin^2+ymin^2)<r^2 |
+  (xmin^2+ymax^2)<r^2 |
+  (xmax^2+ymin^2)<r^2 |
+  (xmax^2+ymax^2)<r^2 ]
+# Create an ID
+sf_table[,sf_id:=.I][]
+```
+
+Let us plot the result:
+
+```{r, fig.asp=1}
+ggplot(sf_table) +
+  geom_rect( 
+            aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax), fill=NA, colour="blue")+
+  circleFun(diameter=map_template.master$wafer_size)+
+  geom_text( aes(x=xmax-dx/2, y=ymax-dy/2, label=sf_id), size=5, colour="darkgrey")
+```
+
+Looks good, doesn't it?
+
+## Positioning dice
+
+Now we generate some dice. Let us place 4x6 dice inside of each stepper field:

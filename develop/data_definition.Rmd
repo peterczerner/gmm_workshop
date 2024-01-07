@@ -1,0 +1,75 @@
+---
+title: "Data definition"
+output: 
+  html_notebook: 
+    fig_width: 4
+---
+
+```{r setup}
+library(data.table)
+library(ggplot2)
+```
+
+# Wafer Data
+## Master
+
+```{r}
+map_template.master<-list(
+  # Master data 
+  # All sizes in µm
+  wafer_size = 200e3,
+  wafer_edge = 5e3,
+  step_x     = 48e3,
+  step_y     = 40e3,
+  die_step_x = 4e3,
+  die_step_y = 4e3
+)
+```
+
+### Function plotting circle
+```{r}
+#' Title
+#'
+#' @param r 
+#' @param xc 
+#' @param yc 
+#' @param color 
+#' @param fill 
+#' @param ... 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+gg_circle <- function(r, xc, yc, color="black", fill=NA, ...) {
+    x <- xc + r*cos(seq(0, pi, length.out=100))
+    ymax <- yc + r*sin(seq(0, pi, length.out=100))
+    ymin <- yc + r*sin(seq(0, -pi, length.out=100))
+    annotate("ribbon", x=x, ymin=ymin, ymax=ymax, color=color, fill=fill, ...)
+}
+```
+
+
+
+```{r}
+ggplot() + gg_circle(map_template.master$wafer_size,0,0)
+```
+
+
+```{r, fig.asp=1,out.width="100px"}
+circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
+    r = diameter / 2
+    tt <- seq(0,2*pi,length.out = npoints)
+    xx <- center[1] + r * cos(tt)
+    yy <- center[2] + r * sin(tt)
+    df<-data.frame(x = xx, y = yy)
+    
+    geom_path(data=df, aes(x,y))
+    
+}
+
+ggplot() + circleFun(diameter=map_template.master$wafer_size)
+
+
+```
+
