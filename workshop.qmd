@@ -1,0 +1,130 @@
+---
+title: "Investigating Wafer Data"
+author: "Peter Czerner"
+format: html
+editor: visual
+---
+
+## Install needed packages
+
+We used the package [`renv`](https://cran.r-project.org/web/packages/renv/index.html), to record packages used and make you able to recover the package environment, after you checked out this project from github. All what you need is to run the following command:
+
+```{r}
+renv::restore()
+```
+
+Now the needed packages with dependencies are installed, and we can load, what we need:
+
+```{r}
+library(data.table)
+library(ggplot2)
+```
+
+## Map template data
+
+I have prepared a wafer map template in this project. You canfind them in directory data. It has three components, that we will load here
+
+```{r}
+# Initialize a list
+wtemplate<-list()
+```
+
+### Master data
+
+```{r}
+print(wtemplate$master<-readRDS("data/map_template.Rds"))
+```
+
+### Stepper field data
+
+```{r}
+print(wtemplate$sf<-readRDS("data/sf_table.Rds"))
+```
+
+### Die data
+
+```{r}
+print(wtemplate$dice<-readRDS("data/die_table.Rds"))
+```
+
+## Plot map template
+
+As the first step we plot a circle representing an empty wafer. Befor we can do that, we need to define a little help function to extend the package [`ggplot2`](https://cran.r-project.org/web/packages/ggplot2/index.html):
+
+```{r}
+circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
+    r = diameter / 2
+    tt <- seq(0,2*pi,length.out = npoints)
+    xx <- center[1] + r * cos(tt)
+    yy <- center[2] + r * sin(tt)
+    df<-data.frame(x = xx, y = yy)
+    
+    geom_path(data=df, aes(x,y))
+    
+}
+```
+
+Now we can start to plot:
+
+### Empty wafer
+
+Here we use our circle function and wafer diameter as loaded from data:
+
+```{r fig.asp=1}
+ggplot() + circleFun(diameter=wtemplate$master$wafer_size)
+```
+
+### Stepper fields
+
+To plot stepper fields we use [`geom_rect`](https://ggplot2.tidyverse.org/reference/geom_tile.html) from package [`ggplot2`](https://ggplot2.tidyverse.org/index.html) and our prepared stepper field data. We also use [`geom_text`](https://ggplot2.tidyverse.org/reference/geom_text.html) to write out the stepper field numbers:
+
+```{r fig.asp=1}
+ggplot(wtemplate$sf) +
+  geom_rect( 
+            aes(
+              xmin=sf_xmin, 
+              xmax=(sf_xmin+wtemplate$master$step_x), 
+              ymin=sf_ymin, 
+              ymax=(sf_ymin+wtemplate$master$step_y)), 
+            fill=NA, colour="blue")+
+  circleFun(diameter=wtemplate$master$wafer_size) +
+  geom_text(aes(
+    x=sf_xmin+wtemplate$master$step_x/2, 
+    y=sf_ymin+wtemplate$master$step_y/2, 
+    label=sf_id), 
+   size=5, 
+   colour="darkgrey"
+  )
+```
+
+### Dice
+
+Same procedure for dice. here we use the attribute `die_type` to fill the dice to distinguish between potential good dice and edge dice.
+
+As we can see, all the map components can be simply added together:
+
+```{r fig.asp=.8}
+ggplot() +
+  # Dice
+  geom_rect(data=wtemplate$dice,
+            aes(
+              xmin=die_xmin, 
+              xmax=(die_xmin+wtemplate$master$die_x), 
+              ymin=die_ymin, 
+              ymax=(die_ymin+wtemplate$master$die_y),
+              fill=die_type
+              ), 
+            colour="black") +
+  # Stepper fields
+  geom_rect(data=wtemplate$sf,
+            aes(
+              xmin=sf_xmin, 
+              xmax=(sf_xmin+wtemplate$master$step_x), 
+              ymin=sf_ymin, 
+              ymax=(sf_ymin+wtemplate$master$step_y)), 
+            fill=NA, colour="blue") +
+  # Wafer circle
+  circleFun(diameter=wtemplate$master$wafer_size)
+```
+
+## Investigate test data

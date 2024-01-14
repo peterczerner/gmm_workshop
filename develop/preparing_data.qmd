@@ -220,7 +220,7 @@ lot_die_table[die_type=="pot_good",die_id:=.I]
 # Last but not least order the columns
 setcolorder(lot_die_table,c("die_id","wafer_nr","die_xmin","die_ymin",
                             "sf_id", "sf_xmin","sf_ymin"))
-lot_die_table[]
+lot_die_table[1:5]
 ```
 
 ## Create test data
@@ -228,6 +228,37 @@ lot_die_table[]
 Now we create some sample test data. For the first we initialize a table including wafer no. and die id:
 
 ```{r}
-test_data<-lot_die_table[die_type=="pot_good",.(wafer_nr,die_id)]
-test_data[]
+test_data<-lot_die_table[die_type=="pot_good",]
+test_data[,`:=`(die_x=die_xmin+die_dx/2, die_y=die_ymin+die_dy/2, test1_value=NA_real_) ]
+test_data[1:5]
 ```
+
+Create some funny distributions
+
+```{r}
+# die count of one wafer
+N<-test_data[wafer_nr==1, .N]
+#
+test_data[wafer_nr==1, test1_value:=rnorm(N)]
+#
+test_data[wafer_nr==2, test1_value:=rnorm(N)+sqrt(die_x^2+die_y^2)/100e3]
+```
+
+## Save data
+
+```{r}
+saveRDS(map_template.master, "../data/map_template.Rds")
+saveRDS(sf_table, "../data/sf_table.Rds")
+saveRDS(die_table,"../data/die_table.Rds")
+```
+
+## Save library status
+
+```{r}
+renv::init()
+renv::snapshot()
+```
+
+\-\--
+
+Created by Peter Czerner, January 2024
