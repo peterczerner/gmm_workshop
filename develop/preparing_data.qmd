@@ -62,20 +62,21 @@ Now we create a table including all the stepper fields, combining sf_sequence:
 
 ```{r}
 # SF sizes
-dx<-dy<-map_template.master$wafer_size/8
+sf_dx<-sf_dy<-map_template.master$wafer_size/8
 # Save it to our master data
-map_template.master$step_x<-dx
-map_template.master$step_y<-dy
+map_template.master$step_x<-sf_dx
+map_template.master$step_y<-sf_dy
 # SF data as table
-sf_table<-setDT(expand.grid(xmin=sf_sequence,ymin=sf_sequence))
-sf_table[,`:=`(xmax=xmin+dx, ymax=ymin+dy)]
+sf_table<-setDT(expand.grid(sf_xmin=sf_sequence,sf_ymin=sf_sequence))
 # Eliminate SFs outside of wafer
 r<-map_template.master$wafer_size/2
 sf_table<-sf_table[
-  (xmin^2+ymin^2)<r^2 |
-  (xmin^2+ymax^2)<r^2 |
-  (xmax^2+ymin^2)<r^2 |
-  (xmax^2+ymax^2)<r^2 ]
+  (sf_xmin^2+sf_ymin^2)<r^2 |
+  (sf_xmin^2+(sf_ymin+sf_dy)^2)<r^2 |
+  ((sf_xmin+sf_dx)^2+sf_ymin^2)<r^2 |
+  ((sf_xmin+sf_dx)^2+(sf_ymin+sf_dy)^2)<r^2 ]
+# order
+sf_table<-sf_table[order(-sf_ymin,sf_xmin)]
 # Create an ID
 sf_table[,sf_id:=.I][]
 ```
@@ -85,13 +86,148 @@ Let us plot the result:
 ```{r, fig.asp=1}
 ggplot(sf_table) +
   geom_rect( 
-            aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax), fill=NA, colour="blue")+
+            aes(xmin=sf_xmin, xmax=(sf_xmin+sf_dx), ymin=sf_ymin, ymax=(sf_ymin+sf_dy)), 
+            fill=NA, colour="blue")+
   circleFun(diameter=map_template.master$wafer_size)+
-  geom_text( aes(x=xmax-dx/2, y=ymax-dy/2, label=sf_id), size=5, colour="darkgrey")
+  geom_text( aes(x=sf_xmin+sf_dx/2, y=sf_ymin+sf_dy/2, label=sf_id), size=5, colour="darkgrey")
 ```
 
 Looks good, doesn't it?
 
-## Positioning dice
+## Die placement
 
-Now we generate some dice. Let us place 4x6 dice inside of each stepper field:
+Now we generate some dice. Let us place 4x6 dice inside of each stepper field. We do it similar to stepper die placement:
+
+```{r}
+x_die_seq<-seq(
+  from = 0,
+  to   = map_template.master$step_x,
+  length.out = 5)[1:4]
+
+y_die_seq<-seq(
+  from = 0,
+  to   = map_template.master$step_y,
+  length.out = 7)[1:6]
+
+map_template.master$die_x<-die_dx<-sf_dx/4
+map_template.master$die_y<-die_dy<-sf_dy/6
+die_table<-setDT(expand.grid(die_xmin=x_die_seq,die_ymin=y_die_seq))
+die_table[]
+
+```
+
+Now we join the die table with the stepper field table:
+
+```{r}
+# Cartesian join both tables
+die_table<-sf_table[,as.list(die_table),by=sf_table]
+# Change die coordinates from relative to stepper field to relative to wafer centre
+die_table[,`:=`(
+  die_xmin = die_xmin + sf_xmin,
+  die_ymin = die_ymin + sf_ymin
+)]
+die_table
+```
+
+Plot stepper fields and dice:
+
+```{r, fig.asp=1}
+ggplot() +
+  # Dice
+  geom_rect(data=die_table, aes(
+              xmin=die_xmin, 
+              xmax=(die_xmin+die_dx), 
+              ymin=die_ymin, 
+              ymax=(die_ymin+die_dy)
+              ), 
+            fill=NA, colour="red")+
+  # Stepper fields
+  geom_rect(data=sf_table, aes(
+              xmin=sf_xmin, 
+              xmax=(sf_xmin+sf_dx), 
+              ymin=sf_ymin, 
+              ymax=(sf_ymin+sf_dy)
+              ), 
+            fill=NA, colour="blue")+
+  # Wafer circle
+  circleFun(diameter=map_template.master$wafer_size)
+  
+```
+
+Wie shluld replace dice outside of wafer area
+
+```{r}
+die_table<-die_table[
+  (die_xmin^2+die_ymin^2)<r^2 &
+  (die_xmin^2+(die_ymin+die_dy)^2)<r^2 &
+  ((die_xmin+die_dx)^2+die_ymin^2)<r^2 &
+  ((die_xmin+die_dx)^2+(die_ymin+die_dy)^2)<r^2 ]
+```
+
+and differentiate between dice in good area and on the wafer edge:
+
+```{r}
+r_good<-(map_template.master$wafer_size - map_template.master$wafer_edge)/2
+die_table[,die_type:="edge"]
+die_table[
+  (die_xmin^2+die_ymin^2)<r_good^2 &
+  (die_xmin^2+(die_ymin+die_dy)^2)<r_good^2 &
+  ((die_xmin+die_dx)^2+die_ymin^2)<r_good^2 &
+  ((die_xmin+die_dx)^2+(die_ymin+die_dy)^2)<r_good^2,die_type:="pot_good" ]
+
+die_table
+
+```
+
+Plot again
+
+```{r, fig.asp=0.8}
+ggplot() +
+  # Dice
+  geom_rect(data=die_table, aes(
+              xmin=die_xmin, 
+              xmax=(die_xmin+die_dx), 
+              ymin=die_ymin, 
+              ymax=(die_ymin+die_dy),
+              fill=die_type
+              ), 
+            colour="black")+
+  # Stepper fields
+  geom_rect(data=sf_table, aes(
+              xmin=sf_xmin, 
+              xmax=(sf_xmin+sf_dx), 
+              ymin=sf_ymin, 
+              ymax=(sf_ymin+sf_dy)
+              ), 
+            fill=NA, colour="blue")+
+  # Wafer circle
+  circleFun(diameter=map_template.master$wafer_size)
+```
+
+An here aou are our template wafer map!
+
+## Create a production lot
+
+Let us create die data for a production lot of 8 wafers:
+
+```{r}
+# Cartesian product of die_table and wafer list of 8 wafers 
+lot_die_table<-die_table[,list(wafer_nr=1:8),die_table]
+# Order the table
+lot_die_table<-lot_die_table[order(wafer_nr,-die_ymin,die_xmin)]
+# Create an unique die id for potential goot dice
+lot_die_table[die_type=="pot_good",die_id:=.I]
+# Last but not least order the columns
+setcolorder(lot_die_table,c("die_id","wafer_nr","die_xmin","die_ymin",
+                            "sf_id", "sf_xmin","sf_ymin"))
+lot_die_table[]
+```
+
+## Create test data
+
+Now we create some sample test data. For the first we initialize a table including wafer no. and die id:
+
+```{r}
+test_data<-lot_die_table[die_type=="pot_good",.(wafer_nr,die_id)]
+test_data[]
+```
