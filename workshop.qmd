@@ -20,7 +20,7 @@ library(data.table)
 library(ggplot2)
 ```
 
-## Map template data
+## Wafer map template data
 
 I have prepared a wafer map template in this project. You canfind them in directory data. It has three components, that we will load here
 
@@ -38,7 +38,7 @@ print(wtemplate$master<-readRDS("data/map_template.Rds"))
 ### Stepper field data
 
 ```{r}
-print(wtemplate$sf<-readRDS("data/sf_table.Rds"))
+print(head(wtemplate$sf<-readRDS("data/sf_table.Rds"),5))
 ```
 
 ### Die data
@@ -128,3 +128,150 @@ ggplot() +
 ```
 
 ## Investigate test data
+
+Prepared test data are stored in the file `test_data.Rds`. Let us load it:
+
+```{r}
+test_values<-readRDS("data/test_data.Rds")
+test_values[1:5]
+```
+
+Because of storage efficiency, the table includes only die_id and the test value. The die coordinates are stored separately:
+
+```{r}
+die_data<-readRDS("data/die_id_table.Rds")
+die_data[1:5]
+```
+
+Now we join both tables, to be able to investigate the data in the context of the coordinates:
+
+```{r}
+test_data<-die_data[test_values, on="die_id"]
+test_data[1:5]
+```
+
+Last but not leas we load the test limits:
+
+```{r}
+lim<-readRDS("data/test_limits.Rds")
+lim
+```
+
+### Compute simple statistics
+
+First step in each data investigation is to compute simple statistics. [`data.table`](https://cran.r-project.org/web/packages/data.table/vignettes/datatable-intro.html) package is very useful for this purpose:
+
+```{r}
+test_data[,.(
+  die_count = .N,
+  nok       = sum(ifelse(between(test_value,lim$low,lim$high),0,1)),
+  mean      = mean(test_value),
+  sd        = sd(test_value),
+  cp        = (lim$high-lim$low)/6*sd(test_value),
+  cpk       = min(lim$high-mean(test_value),mean(test_value)-lim$low)/3*sd(test_value)
+), by=wafer_nr]
+
+
+
+```
+
+### Plot value histogram
+
+We plot a histogram of test values and distinguish the wafer numbers using different colors:
+
+```{r}
+ggplot(test_data) +
+  geom_histogram(aes(
+     x=test_value, 
+     group=factor(wafer_nr), 
+     fill=factor(wafer_nr)),
+    alpha = .5, bins = 100) +
+  geom_vline(xintercept = c(-2,2), color="red", linetype="dashed") +
+  labs(
+    title="Test value histogram",
+    x="Test value",
+    y="Count",
+    fill="Wafer No."
+  )
+```
+
+### Plot wafer map
+
+#### One wafer
+
+We plot the wafer map for test values of wafer 1. We use test limits to set the color scale between the limits, all values outside of limits are grey:
+
+```{r fig.asp=.8}
+ggplot() +
+  # Dice
+  geom_rect(data=test_data[wafer_nr==1],
+            aes(
+              xmin=die_xmin, 
+              xmax=(die_xmin+wtemplate$master$die_x), 
+              ymin=die_ymin, 
+              ymax=(die_ymin+wtemplate$master$die_y),
+              fill=test_value
+              )) +
+  # Wafer circle
+  circleFun(diameter=wtemplate$master$wafer_size) +
+  scale_fill_gradient(limits=unlist(lim))
+```
+
+#### Stack map
+
+For some purposes it is useful to plot a stack wafer map over all wafers of a lot:
+
+```{r}
+mean_values<-test_data[,.(mean_value=mean(test_value)), by=.(die_xmin,die_ymin)]
+```
+
+```{r fig.asp=.8}
+ggplot() +
+  # Dice
+  geom_rect(data=mean_values,
+            aes(
+              xmin=die_xmin, 
+              xmax=(die_xmin+wtemplate$master$die_x), 
+              ymin=die_ymin, 
+              ymax=(die_ymin+wtemplate$master$die_y),
+              fill=mean_value
+              )) +
+  # Wafer circle
+  circleFun(diameter=wtemplate$master$wafer_size) +
+  scale_fill_gradient(limits=c(-2,2))
+```
+
+Indeed, some structures can be recognized here.
+
+#### All wafers iin one plot
+
+We can easy plot all wafers at once using [facet_wrap](https://ggplot2.tidyverse.org/reference/facet_wrap.html) method:
+
+```{r fig.asp=.5}
+ggplot() +
+  # Dice
+  geom_rect(data=test_data,
+            aes(
+              xmin=die_xmin, 
+              xmax=(die_xmin+wtemplate$master$die_x), 
+              ymin=die_ymin, 
+              ymax=(die_ymin+wtemplate$master$die_y),
+              fill=test_value
+              ), show.legend = FALSE) +
+  # Wafer circle
+  circleFun(diameter=wtemplate$master$wafer_size) +
+  scale_fill_gradient(limits=unlist(lim)) +
+  # Split over wafers
+  facet_wrap(wafer_nr~.,ncol = 4) + 
+  # Remove all labels
+  theme_void()
+ 
+```
+
+Here you can better recognize the problems we are facing with individual wafers.
+
+In the real world it is very useful to wrap all the commands into methods like `plotWafermap(lot=12345, wafer=1:5, method="stack")`... 😁
+
+\-\--
+
+Created by Peter Czerner, January 2024

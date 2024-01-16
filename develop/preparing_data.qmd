@@ -225,7 +225,7 @@ lot_die_table[1:5]
 
 ## Create test data
 
-Now we create some sample test data. For the first we initialize a table including wafer no. and die id:
+Now we create some sample test data.
 
 ```{r}
 test_data<-lot_die_table[die_type=="pot_good",]
@@ -241,7 +241,34 @@ N<-test_data[wafer_nr==1, .N]
 #
 test_data[wafer_nr==1, test1_value:=rnorm(N)]
 #
-test_data[wafer_nr==2, test1_value:=rnorm(N)+sqrt(die_x^2+die_y^2)/100e3]
+test_data[wafer_nr==2, test1_value:=rnorm(N)/2+4*sqrt(die_x^2+die_y^2)/1e5-2]
+#
+test_data[wafer_nr==3, test1_value:=rnorm(N)/3+4*sqrt(die_x^2+die_y^2)/1e5-2]
+#
+test_data[wafer_nr==4, 
+          test1_value:=rnorm(N)/3+4*sqrt(die_x^2+die_y^2)/1e5-2 +
+            ifelse(die_x-die_y>.9,1,0)]
+#
+test_data[wafer_nr==5, test1_value:=rnorm(N) + 
+           ifelse(between(sqrt(die_x^2+die_y^2)/1e5,.5,.75),2,0)]
+#
+test_data[wafer_nr==6, test1_value:=rnorm(N) + 
+            ifelse(die_x-die_y/1e5<.1,2,0)]
+#
+test_data[wafer_nr==7, test1_value:=rnorm(N) + 
+            ifelse(abs(-die_x/2-die_y)/1e5<.1 | abs(die_x/2-die_y)/1e5<.1,2,0)]
+#
+test_data[wafer_nr==8, test1_value:=rnorm(N) + 
+           ifelse((sqrt(die_x^2+die_y^2)/1e5)>0.8,2,0)]
+
+test_data
+```
+
+What we need is a table including die_id and coordinates and another one, including test values:
+
+```{r}
+die_id_table<-test_data[,.(die_id,wafer_nr,die_xmin,die_ymin,sf_id)]
+test_value_table<-test_data[,.(die_id,test_value=round(test1_value,3))]
 ```
 
 ## Save data
@@ -250,12 +277,14 @@ test_data[wafer_nr==2, test1_value:=rnorm(N)+sqrt(die_x^2+die_y^2)/100e3]
 saveRDS(map_template.master, "../data/map_template.Rds")
 saveRDS(sf_table, "../data/sf_table.Rds")
 saveRDS(die_table,"../data/die_table.Rds")
+saveRDS(test_value_table,"../data/test_data.Rds")
+saveRDS(die_id_table,"../data/die_id_table.Rds")
+saveRDS(list(low=-2, high=2),"../data/test_limits.Rds")
 ```
 
 ## Save library status
 
 ```{r}
-renv::init()
 renv::snapshot()
 ```
 
