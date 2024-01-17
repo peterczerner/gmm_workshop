@@ -7,13 +7,13 @@ editor: visual
 
 ## Install needed packages
 
-We used the package [`renv`](https://cran.r-project.org/web/packages/renv/index.html), to record packages used and make you able to recover the package environment, after you checked out this project from github. All what you need is to run the following command:
+We used the package [`renv`](https://cran.r-project.org/web/packages/renv/index.html), to record packages used and make you able to recover the package environment, after you checked out this project from github. All you need is to run the following command:
 
 ```{r}
 renv::restore()
 ```
 
-Now the needed packages with dependencies are installed, and we can load, what we need:
+Now the needed packages with dependencies are installed, and we can load what we need:
 
 ```{r}
 library(data.table)
@@ -22,7 +22,7 @@ library(ggplot2)
 
 ## Wafer map template data
 
-I have prepared a wafer map template in this project. You canfind them in directory data. It has three components, that we will load here
+I have prepared a wafer map template in this project. You can find the needed files `map_template.Rds`, `sf_table.Rds` and `die_table.Rds` in the project's folder `data`. We will now load the three components:
 
 ```{r}
 # Initialize a list
@@ -49,7 +49,7 @@ print(wtemplate$dice<-readRDS("data/die_table.Rds"))
 
 ## Plot map template
 
-As the first step we plot a circle representing an empty wafer. Befor we can do that, we need to define a little help function to extend the package [`ggplot2`](https://cran.r-project.org/web/packages/ggplot2/index.html):
+As first step we plot a circle representing an empty wafer. Before we can do that, we need to define a little help function to extend the package [`ggplot2`](https://cran.r-project.org/web/packages/ggplot2/index.html):
 
 ```{r}
 circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
@@ -99,7 +99,7 @@ ggplot(wtemplate$sf) +
 
 ### Dice
 
-Same procedure for dice. here we use the attribute `die_type` to fill the dice to distinguish between potential good dice and edge dice.
+Same procedure for dice. Here we use the attribute `die_type` to fill the dice to distinguish between potential good dice and edge dice.
 
 As we can see, all the map components can be simply added together:
 
@@ -129,7 +129,7 @@ ggplot() +
 
 ## Investigate test data
 
-Prepared test data are stored in the file `test_data.Rds`. Let us load it:
+Prepared test data are stored in the file `data/test_data.Rds`. Let us load it:
 
 ```{r}
 test_values<-readRDS("data/test_data.Rds")
@@ -150,7 +150,7 @@ test_data<-die_data[test_values, on="die_id"]
 test_data[1:5]
 ```
 
-Last but not leas we load the test limits:
+Last but not least we load the test limits:
 
 ```{r}
 lim<-readRDS("data/test_limits.Rds")
@@ -219,7 +219,7 @@ ggplot() +
 
 #### Stack map
 
-For some purposes it is useful to plot a stack wafer map over all wafers of a lot:
+For some purposes it is useful to plot a stacked wafer map over all wafers of a lot:
 
 ```{r}
 mean_values<-test_data[,.(mean_value=mean(test_value)), by=.(die_xmin,die_ymin)]
@@ -243,9 +243,9 @@ ggplot() +
 
 Indeed, some structures can be recognized here.
 
-#### All wafers iin one plot
+#### All wafers in one plot
 
-We can easy plot all wafers at once using [facet_wrap](https://ggplot2.tidyverse.org/reference/facet_wrap.html) method:
+We can plot easily all wafers at once using [facet_wrap](https://ggplot2.tidyverse.org/reference/facet_wrap.html) method:
 
 ```{r fig.asp=.5}
 ggplot() +
